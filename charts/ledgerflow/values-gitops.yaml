@@ -6,6 +6,7 @@ image:
   pullPolicy: IfNotPresent
 
 api:
+  rateLimitPerMinute: 120000   # load-test profile (2000 req/s per client); default is 120/min
   hpa:
     enabled: true
     minReplicas: 2
