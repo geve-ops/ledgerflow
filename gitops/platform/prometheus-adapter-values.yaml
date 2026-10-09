@@ -7,8 +7,8 @@ prometheus:
 rules:
   default: false
   custom:
-    # ledger_http_requests_total (counter)  ->  ledger_http_requests_per_second (per pod)
-    - seriesQuery: 'ledger_http_requests_total{namespace!="",pod!=""}'
+    # ledger_api_requests_total (counter)  ->  ledger_api_requests_per_second (per pod)
+    - seriesQuery: 'ledger_api_requests_total{namespace!="",pod!=""}'
       resources:
         overrides:
           namespace: {resource: namespace}

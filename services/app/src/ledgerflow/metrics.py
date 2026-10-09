@@ -9,6 +9,12 @@ HTTP_LATENCY = Histogram(
     ["method", "route"],
     buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5),
 )
+# Label-free on purpose: an unlabelled counter is exported as 0 from process start, so every
+# pod always has this series. The HPA metric is built on it; a labelled counter only appears
+# after the first request, which would make idle pods look like "metric missing" to the HPA.
+API_REQUESTS = Counter(
+    "ledger_api_requests_total", "API requests served (probes and /metrics excluded)"
+)
 SUBMITTED = Counter(
     "ledger_transactions_submitted_total", "Transactions accepted by the API", ["outcome"]
 )

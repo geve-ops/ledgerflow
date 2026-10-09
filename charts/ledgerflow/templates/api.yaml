@@ -105,10 +105,10 @@ spec:
         name: cpu
         target: {type: Utilization, averageUtilization: {{ .Values.api.hpa.targetCPUUtilization }}}
     {{- if .Values.api.hpa.targetRequestsPerSecond }}
-    # Custom metric served by prometheus-adapter (rate of ledger_http_requests_total per pod)
+    # Custom metric served by prometheus-adapter (rate of ledger_api_requests_total per pod)
     - type: Pods
       pods:
-        metric: {name: ledger_http_requests_per_second}
+        metric: {name: ledger_api_requests_per_second}
         target: {type: AverageValue, averageValue: {{ .Values.api.hpa.targetRequestsPerSecond | quote }}}
     {{- end }}
   behavior:

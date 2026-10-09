@@ -49,6 +49,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             route = request.scope.get("route")
             path = route.path if route else "unmatched"
             if path not in ("/metrics", "/healthz", "/readyz"):
+                metrics.API_REQUESTS.inc()
                 metrics.HTTP_REQUESTS.labels(request.method, path, str(status)).inc()
                 metrics.HTTP_LATENCY.labels(request.method, path).observe(
                     time.perf_counter() - start

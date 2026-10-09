@@ -34,6 +34,17 @@ async def test_health_and_auth(client):
     assert r.status_code == 401
 
 
+async def test_autoscaling_counter_exists_before_any_traffic(client):
+    # The HPA metric must be present on idle pods; a labelled counter would be absent.
+    text = (await client.get("/metrics")).text
+    assert "ledger_api_requests_total " in text
+    before = float(text.split("ledger_api_requests_total ")[1].split()[0])
+    await client.get("/v1/accounts/nope")
+    after_text = (await client.get("/metrics")).text
+    after = float(after_text.split("ledger_api_requests_total ")[1].split()[0])
+    assert after == before + 1  # counted; /metrics and probes are not
+
+
 async def test_end_to_end_posting(client, worker):
     treasury = await make_account(client, allow_negative=True)
     alice = await make_account(client)
