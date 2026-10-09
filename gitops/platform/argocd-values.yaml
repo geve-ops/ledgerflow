@@ -1,0 +1,51 @@
+# helm install argocd argo/argo-cd --version 10.10.1 -n argocd --create-namespace
+global:
+  domain: argocd.localtest.me
+
+configs:
+  params:
+    server.insecure: true        # TLS is terminated in front; UI is reached via port-forward locally
+  cm:
+    timeout.reconciliation: 60s
+    # Argo CD has no built-in health check for CloudNativePG, so without this it would
+    # call the Cluster "Healthy" instantly and sync the app before the database is up.
+    resource.customizations.health.postgresql.cnpg.io_Cluster: |
+      hs = {}
+      if obj.status ~= nil and obj.status.phase ~= nil then
+        if obj.status.phase == "Cluster in healthy state" then
+          hs.status = "Healthy"
+        else
+          hs.status = "Progressing"
+        end
+        hs.message = obj.status.phase
+      else
+        hs.status = "Progressing"
+        hs.message = "Waiting for cluster status"
+      end
+      return hs
+
+dex:
+  enabled: false
+notifications:
+  enabled: false
+
+controller:
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {memory: 768Mi}
+server:
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {memory: 256Mi}
+repoServer:
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {memory: 512Mi}
+redis:
+  resources:
+    requests: {cpu: 25m, memory: 64Mi}
+    limits: {memory: 128Mi}
+applicationSet:
+  resources:
+    requests: {cpu: 25m, memory: 64Mi}
+    limits: {memory: 128Mi}

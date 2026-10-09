@@ -1,0 +1,70 @@
+# Edge, data layer, network policies and the application itself (waves 0-2).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: edge
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "0"}
+spec:
+  project: ledgerflow
+  source:
+    repoURL: https://github.com/geve-ops/ledgerflow.git
+    targetRevision: main
+    path: gitops/edge
+  destination: {server: https://kubernetes.default.svc, namespace: ledger}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    retry: {limit: 5, backoff: {duration: 15s, factor: 2, maxDuration: 3m}}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: data
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "0"}
+spec:
+  project: ledgerflow
+  source:
+    repoURL: https://github.com/geve-ops/ledgerflow.git
+    targetRevision: main
+    path: gitops/data
+  destination: {server: https://kubernetes.default.svc, namespace: ledger}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    retry: {limit: 5, backoff: {duration: 15s, factor: 2, maxDuration: 3m}}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: network-policies
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "1"}
+spec:
+  project: ledgerflow
+  source:
+    repoURL: https://github.com/geve-ops/ledgerflow.git
+    targetRevision: main
+    path: gitops/network-policies
+  destination: {server: https://kubernetes.default.svc, namespace: ledger}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ledgerflow
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "2"}
+spec:
+  project: ledgerflow
+  source:
+    repoURL: https://github.com/geve-ops/ledgerflow.git
+    targetRevision: main
+    path: charts/ledgerflow
+    helm:
+      releaseName: ledgerflow
+      valueFiles: [values-gitops.yaml]
+  destination: {server: https://kubernetes.default.svc, namespace: ledger}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    retry: {limit: 5, backoff: {duration: 15s, factor: 2, maxDuration: 3m}}

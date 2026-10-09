@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: ledgerflow
+  namespace: argocd
+spec:
+  description: Ledgerflow platform and application
+  sourceRepos:
+    - https://github.com/geve-ops/ledgerflow.git
+    - https://bitnami.github.io/sealed-secrets
+    - https://cloudnative-pg.github.io/charts
+    - https://charts.jetstack.io
+    - docker.io/envoyproxy
+  destinations:
+    - {server: https://kubernetes.default.svc, namespace: "*"}
+  clusterResourceWhitelist:
+    - {group: "*", kind: "*"}

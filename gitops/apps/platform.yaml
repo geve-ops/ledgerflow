@@ -1,0 +1,106 @@
+# Platform layer. Sync waves order the install: namespaces -> operators/CRDs ->
+# cert-manager (needs the Gateway API CRDs that Envoy Gateway ships) -> everything else.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: namespaces
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-10"}
+spec:
+  project: ledgerflow
+  source:
+    repoURL: https://github.com/geve-ops/ledgerflow.git
+    targetRevision: main
+    path: gitops/platform
+    directory: {include: namespaces.yaml}
+  destination: {server: https://kubernetes.default.svc, namespace: default}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sealed-secrets
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-9"}
+spec:
+  project: ledgerflow
+  sources:
+    - repoURL: https://bitnami.github.io/sealed-secrets
+      chart: sealed-secrets
+      targetRevision: 2.20.0
+      helm:
+        releaseName: sealed-secrets
+        valueFiles: [$values/gitops/platform/sealed-secrets-values.yaml]
+    - repoURL: https://github.com/geve-ops/ledgerflow.git
+      targetRevision: main
+      ref: values
+  destination: {server: https://kubernetes.default.svc, namespace: sealed-secrets}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cnpg-operator
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-9"}
+spec:
+  project: ledgerflow
+  sources:
+    - repoURL: https://cloudnative-pg.github.io/charts
+      chart: cloudnative-pg
+      targetRevision: 0.29.1
+      helm:
+        releaseName: cnpg
+        valueFiles: [$values/gitops/platform/cnpg-operator-values.yaml]
+    - repoURL: https://github.com/geve-ops/ledgerflow.git
+      targetRevision: main
+      ref: values
+  destination: {server: https://kubernetes.default.svc, namespace: cnpg-system}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [ServerSideApply=true]   # CNPG CRDs exceed the client-side apply size limit
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: envoy-gateway
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-9"}
+spec:
+  project: ledgerflow
+  source:
+    repoURL: docker.io/envoyproxy
+    chart: gateway-helm
+    targetRevision: v1.9.2
+    helm: {releaseName: eg}
+  destination: {server: https://kubernetes.default.svc, namespace: envoy-gateway-system}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-8"}
+spec:
+  project: ledgerflow
+  source:
+    repoURL: https://charts.jetstack.io
+    chart: cert-manager
+    targetRevision: v1.21.2
+    helm:
+      releaseName: cert-manager
+      valuesObject:
+        crds: {enabled: true}
+        config:
+          apiVersion: controller.config.cert-manager.io/v1alpha1
+          kind: ControllerConfiguration
+          enableGatewayAPI: true
+  destination: {server: https://kubernetes.default.svc, namespace: cert-manager}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]

@@ -1,0 +1,19 @@
+# App-of-apps: the only object applied by hand. It points Argo CD at gitops/apps/,
+# and everything else in the cluster is created from Git.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: ledgerflow
+  source:
+    repoURL: https://github.com/geve-ops/ledgerflow.git
+    targetRevision: main
+    path: gitops/apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
