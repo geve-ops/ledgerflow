@@ -36,12 +36,16 @@ async def test_health_and_auth(client):
 
 async def test_autoscaling_counter_exists_before_any_traffic(client):
     # The HPA metric must be present on idle pods; a labelled counter would be absent.
-    text = (await client.get("/metrics")).text
-    assert "ledger_api_requests_total " in text
-    before = float(text.split("ledger_api_requests_total ")[1].split()[0])
+    import re
+
+    def counter(text: str) -> float:
+        match = re.search(r"^ledger_api_requests_total (\S+)$", text, re.MULTILINE)
+        assert match, "series missing from /metrics"
+        return float(match.group(1))
+
+    before = counter((await client.get("/metrics")).text)
     await client.get("/v1/accounts/nope")
-    after_text = (await client.get("/metrics")).text
-    after = float(after_text.split("ledger_api_requests_total ")[1].split()[0])
+    after = counter((await client.get("/metrics")).text)
     assert after == before + 1  # counted; /metrics and probes are not
 
 
