@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths: ["services/**", "charts/**", "gitops/**", ".github/workflows/**"]
+  workflow_dispatch:
   pull_request:
     paths: ["services/**", "charts/**", "gitops/**", ".github/workflows/**"]
 
