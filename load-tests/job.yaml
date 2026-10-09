@@ -1,0 +1,33 @@
+# Runs the k6 script inside the cluster (namespace "loadtest", not covered by the ledger
+# NetworkPolicies) so traffic takes the real path: k6 -> Envoy Gateway (TLS) -> API.
+# Created by scripts/loadtest.ps1, which supplies the ConfigMap, Secret and GATEWAY_IP.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k6
+  namespace: loadtest
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: k6
+          image: grafana/k6:1.3.0
+          args: ["run", "/scripts/ledger.js", "--summary-export=/tmp/summary.json"]
+          env:
+            - name: API_KEY
+              valueFrom: {secretKeyRef: {name: k6-api-key, key: api-key}}
+            - name: GATEWAY_IP
+              value: "__GATEWAY_IP__"
+            - name: PEAK_RPS
+              value: "__PEAK_RPS__"
+          resources:
+            requests: {cpu: 500m, memory: 256Mi}
+            limits: {memory: 1Gi}
+          volumeMounts:
+            - {name: scripts, mountPath: /scripts}
+      volumes:
+        - name: scripts
+          configMap: {name: k6-script}
