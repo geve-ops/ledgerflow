@@ -1,0 +1,98 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: ledgerflow-proxy
+  namespace: envoy-gateway-system
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyDeployment:
+        replicas: 1
+        container:
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {memory: 256Mi}
+      envoyService:
+        type: NodePort
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              ports:
+                # Matches kind-config.yaml extraPortMappings (host 80/443 -> 30080/30443)
+                - {port: 80, nodePort: 30080}
+                - {port: 443, nodePort: 30443}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: envoy
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+  parametersRef:
+    group: gateway.envoyproxy.io
+    kind: EnvoyProxy
+    name: ledgerflow-proxy
+    namespace: envoy-gateway-system
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ledgerflow
+  namespace: ledger
+  annotations:
+    # cert-manager's Gateway integration creates the Certificate for the HTTPS listener.
+    cert-manager.io/cluster-issuer: ledgerflow-ca
+spec:
+  gatewayClassName: envoy
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      hostname: ledgerflow.localtest.me
+      allowedRoutes:
+        namespaces: {from: Same}
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: ledgerflow.localtest.me
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - {kind: Secret, name: ledgerflow-tls}
+      allowedRoutes:
+        namespaces: {from: Same}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ledgerflow-api
+  namespace: ledger
+spec:
+  parentRefs:
+    - {name: ledgerflow, sectionName: https}
+  hostnames: ["ledgerflow.localtest.me"]
+  rules:
+    - matches:
+        - path: {type: PathPrefix, value: /v1}
+      backendRefs:
+        - {name: ledgerflow-api, port: 80}
+    - matches:
+        - path: {type: Exact, value: /healthz}
+      backendRefs:
+        - {name: ledgerflow-api, port: 80}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: ledgerflow-http-redirect
+  namespace: ledger
+spec:
+  parentRefs:
+    - {name: ledgerflow, sectionName: http}
+  hostnames: ["ledgerflow.localtest.me"]
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect: {scheme: https, statusCode: 301}

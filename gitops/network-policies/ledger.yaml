@@ -1,0 +1,173 @@
+# Zero-trust networking for the "ledger" namespace (enforced by Cilium).
+# Everything is denied by default; each policy below opens exactly one flow.
+#
+#   Envoy proxy --8000--> api --6379--> redis <--6379-- worker
+#                          |                              |
+#                          +--------5432--> postgres <----+   (migrate job too)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: ledger
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: ledger
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api
+  namespace: ledger
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: ledgerflow-api}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: envoy-gateway-system}
+          podSelector:
+            matchLabels: {app.kubernetes.io/component: proxy}
+      ports:
+        - {protocol: TCP, port: 8000}
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: redis}
+      ports:
+        - {protocol: TCP, port: 6379}
+    - to:
+        - podSelector:
+            matchLabels: {cnpg.io/cluster: ledger-db}
+      ports:
+        - {protocol: TCP, port: 5432}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: worker
+  namespace: ledger
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: ledgerflow-worker}
+  policyTypes: [Ingress, Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: redis}
+      ports:
+        - {protocol: TCP, port: 6379}
+    - to:
+        - podSelector:
+            matchLabels: {cnpg.io/cluster: ledger-db}
+      ports:
+        - {protocol: TCP, port: 5432}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: migrate
+  namespace: ledger
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: ledgerflow-migrate}
+  policyTypes: [Ingress, Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: {cnpg.io/cluster: ledger-db}
+      ports:
+        - {protocol: TCP, port: 5432}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis
+  namespace: ledger
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: redis}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: ledgerflow-api}
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: ledgerflow-worker}
+      ports:
+        - {protocol: TCP, port: 6379}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres
+  namespace: ledger
+spec:
+  podSelector:
+    matchLabels: {cnpg.io/cluster: ledger-db}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    # Application clients
+    - from:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: ledgerflow-api}
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: ledgerflow-worker}
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: ledgerflow-migrate}
+      ports:
+        - {protocol: TCP, port: 5432}
+    # Replication and instance status between the Postgres pods themselves
+    - from:
+        - podSelector:
+            matchLabels: {cnpg.io/cluster: ledger-db}
+      ports:
+        - {protocol: TCP, port: 5432}
+        - {protocol: TCP, port: 8000}
+    # CloudNativePG operator health checks and failover control
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: cnpg-system}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: cloudnative-pg}
+      ports:
+        - {protocol: TCP, port: 5432}
+        - {protocol: TCP, port: 8000}
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: {cnpg.io/cluster: ledger-db}
+      ports:
+        - {protocol: TCP, port: 5432}
+        - {protocol: TCP, port: 8000}
+---
+# The instance manager inside each Postgres pod talks to the Kubernetes API server.
+# A plain NetworkPolicy cannot name the API server portably, so use Cilium's entity.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: postgres-kube-apiserver
+  namespace: ledger
+spec:
+  endpointSelector:
+    matchLabels: {cnpg.io/cluster: ledger-db}
+  egress:
+    - toEntities: [kube-apiserver]
