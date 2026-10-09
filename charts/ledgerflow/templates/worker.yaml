@@ -1,0 +1,70 @@
+{{- $sel := dict "name" "ledgerflow-worker" "root" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ledgerflow-worker
+  labels: {{- include "ledgerflow.labels" . | nindent 4 }}
+    app.kubernetes.io/name: ledgerflow-worker
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels: {{- include "ledgerflow.selector" $sel | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "ledgerflow.selector" $sel | nindent 8 }}
+        app.kubernetes.io/part-of: ledgerflow
+    spec:
+      serviceAccountName: ledgerflow-worker
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext: {{- include "ledgerflow.podSecurityContext" . | nindent 8 }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: {{- include "ledgerflow.selector" $sel | nindent 14 }}
+      containers:
+        - name: worker
+          image: {{ include "ledgerflow.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-m", "ledgerflow.worker.main"]
+          ports:
+            - {name: metrics, containerPort: {{ .Values.worker.metricsPort }}}
+          env:
+            {{- include "ledgerflow.env" . | nindent 12 }}
+            - name: LEDGER_WORKER_METRICS_PORT
+              value: {{ .Values.worker.metricsPort | quote }}
+          securityContext: {{- include "ledgerflow.containerSecurityContext" . | nindent 12 }}
+          resources: {{- toYaml .Values.worker.resources | nindent 12 }}
+          startupProbe:
+            httpGet: {path: /healthz, port: metrics}
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet: {path: /healthz, port: metrics}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /healthz, port: metrics}   # fails if the consume loop stalls >30s
+            periodSeconds: 10
+            failureThreshold: 3
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 16Mi}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ledgerflow-worker
+  labels: {{- include "ledgerflow.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.worker.pdb.minAvailable }}
+  selector:
+    matchLabels: {{- include "ledgerflow.selector" $sel | nindent 6 }}

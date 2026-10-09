@@ -1,0 +1,35 @@
+{{- if .Values.migrate.enabled }}
+# Runs the idempotent schema migration before every install/upgrade (Argo CD maps
+# Helm pre-hooks to PreSync hooks).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ledgerflow-migrate
+  labels: {{- include "ledgerflow.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 4
+  activeDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ledgerflow-migrate
+        app.kubernetes.io/part-of: ledgerflow
+    spec:
+      restartPolicy: Never
+      serviceAccountName: ledgerflow-migrate
+      automountServiceAccountToken: false
+      securityContext: {{- include "ledgerflow.podSecurityContext" . | nindent 8 }}
+      containers:
+        - name: migrate
+          image: {{ include "ledgerflow.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-m", "ledgerflow.migrate"]
+          env:
+            {{- include "ledgerflow.env" . | nindent 12 }}
+          securityContext: {{- include "ledgerflow.containerSecurityContext" . | nindent 12 }}
+          resources: {{- toYaml .Values.migrate.resources | nindent 12 }}
+{{- end }}

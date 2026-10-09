@@ -1,0 +1,5 @@
+# Local Kind cluster: image is loaded with `kind load docker-image`, never pulled.
+image:
+  repository: ledgerflow
+  tag: dev
+  pullPolicy: Never

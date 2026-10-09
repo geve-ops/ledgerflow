@@ -1,0 +1,47 @@
+image:
+  repository: ghcr.io/geve-ops/ledgerflow
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Existing Secrets (created from SealedSecrets / the CloudNativePG operator).
+secrets:
+  app: ledger-secrets          # keys: redis-password, api-keys
+  database: ledger-db-app      # CNPG-generated; keys: uri, username, password
+
+redis:
+  url: redis://redis.ledger.svc.cluster.local:6379/0
+
+db:
+  roHost: ledger-db-ro.ledger.svc.cluster.local
+  port: 5432
+  name: ledger
+
+api:
+  replicas: 2
+  port: 8000
+  rateLimitPerMinute: 120
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {memory: 256Mi}
+  pdb:
+    minAvailable: 1
+  hpa:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilization: 70
+
+worker:
+  replicas: 2
+  metricsPort: 9100
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {memory: 256Mi}
+  pdb:
+    minAvailable: 1
+
+migrate:
+  enabled: true
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {memory: 128Mi}
