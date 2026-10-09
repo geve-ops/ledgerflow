@@ -46,27 +46,31 @@ class Worker:
 
     async def run_once(self, block_ms: int = 2000) -> int:
         """Reclaim stale entries, then read new ones. Returns messages handled."""
-        handled = 0
         _, claimed, _ = await self.redis.xautoclaim(
             self.s.stream, self.s.group, self.consumer,
             min_idle_time=self.s.claim_idle_ms, start_id="0-0", count=self.s.batch_size,
         )
-        for msg_id, fields in claimed:
-            await self._handle(msg_id, fields)
-            handled += 1
-
+        batch = list(claimed)
         resp = await self.redis.xreadgroup(
             self.s.group, self.consumer, {self.s.stream: ">"},
             count=self.s.batch_size, block=block_ms,
         )
         for _, messages in resp or []:
-            for msg_id, fields in messages:
+            batch.extend(messages)
+
+        # Post up to `concurrency` events at once. Postgres row locks (accounts are locked
+        # in sorted order) keep concurrent postings correct and deadlock-free.
+        gate = asyncio.Semaphore(self.s.concurrency)
+
+        async def bounded(msg_id: str, fields: dict) -> None:
+            async with gate:
                 await self._handle(msg_id, fields)
-                handled += 1
+
+        await asyncio.gather(*(bounded(m, f) for m, f in batch))
 
         await self._update_lag()
         self.last_beat = time.monotonic()
-        return handled
+        return len(batch)
 
     async def _handle(self, msg_id: str, fields: dict) -> None:
         try:

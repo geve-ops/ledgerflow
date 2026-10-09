@@ -43,6 +43,8 @@ spec:
             - name: LEDGER_API_KEYS
               valueFrom:
                 secretKeyRef: {name: {{ .Values.secrets.app }}, key: api-keys}
+            - name: LEDGER_DB_POOL_MAX
+              value: {{ .Values.api.dbPoolMax | quote }}
             - name: LEDGER_RATE_LIMIT_PER_MINUTE
               value: {{ .Values.api.rateLimitPerMinute | quote }}
           securityContext: {{- include "ledgerflow.containerSecurityContext" . | nindent 12 }}

@@ -18,6 +18,15 @@ rules:
         as: "${1}_per_second"
       metricsQuery: 'sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (<<.GroupBy>>)'
 
+  # Queue depth for the worker HPA (external metric, not tied to a particular pod)
+  external:
+    - seriesQuery: 'ledger_stream_lag{namespace!=""}'
+      resources:
+        overrides:
+          namespace: {resource: namespace}
+      name: {as: ledger_stream_lag}
+      metricsQuery: 'max(<<.Series>>{<<.LabelMatchers>>})'
+
 resources:
   requests: {cpu: 25m, memory: 64Mi}
   limits: {memory: 192Mi}

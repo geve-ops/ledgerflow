@@ -6,7 +6,9 @@ metadata:
   labels: {{- include "ledgerflow.labels" . | nindent 4 }}
     app.kubernetes.io/name: ledgerflow-worker
 spec:
+  {{- if not .Values.worker.hpa.enabled }}
   replicas: {{ .Values.worker.replicas }}
+  {{- end }}
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -40,6 +42,11 @@ spec:
             {{- include "ledgerflow.env" . | nindent 12 }}
             - name: LEDGER_WORKER_METRICS_PORT
               value: {{ .Values.worker.metricsPort | quote }}
+            # Pool sizes are budgeted against Postgres max_connections (100) at max replicas.
+            - name: LEDGER_DB_POOL_MAX
+              value: {{ .Values.worker.dbPoolMax | quote }}
+            - name: LEDGER_CONCURRENCY
+              value: {{ .Values.worker.concurrency | quote }}
           securityContext: {{- include "ledgerflow.containerSecurityContext" . | nindent 12 }}
           resources: {{- toYaml .Values.worker.resources | nindent 12 }}
           startupProbe:
@@ -68,3 +75,28 @@ spec:
   minAvailable: {{ .Values.worker.pdb.minAvailable }}
   selector:
     matchLabels: {{- include "ledgerflow.selector" $sel | nindent 6 }}
+{{- if .Values.worker.hpa.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ledgerflow-worker
+  labels: {{- include "ledgerflow.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: ledgerflow-worker}
+  minReplicas: {{ .Values.worker.hpa.minReplicas }}
+  maxReplicas: {{ .Values.worker.hpa.maxReplicas }}
+  metrics:
+    # Scale on queue depth: desired replicas = ceil(stream lag / targetLagPerReplica)
+    - type: External
+      external:
+        metric: {name: ledger_stream_lag}
+        target: {type: AverageValue, averageValue: {{ .Values.worker.hpa.targetLagPerReplica | quote }}}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - {type: Pods, value: 2, periodSeconds: 30}
+    scaleDown:
+      stabilizationWindowSeconds: 180
+{{- end }}

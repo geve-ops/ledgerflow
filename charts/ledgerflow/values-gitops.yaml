@@ -13,3 +13,10 @@ api:
     maxReplicas: 6
     targetCPUUtilization: 70
     targetRequestsPerSecond: 40
+
+worker:
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetLagPerReplica: 500

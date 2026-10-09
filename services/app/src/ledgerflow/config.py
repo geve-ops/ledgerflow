@@ -19,7 +19,8 @@ class Settings(BaseSettings):
     group: str = "ledger-workers"
     max_deliveries: int = 5
     claim_idle_ms: int = 30_000
-    batch_size: int = 10
+    batch_size: int = 50
+    concurrency: int = 8   # in-flight postings per worker; keep <= db_pool_max
     idempotency_ttl_seconds: int = 86_400
     txn_status_ttl_seconds: int = 86_400
 

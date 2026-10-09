@@ -19,6 +19,7 @@ db:
 api:
   replicas: 2
   port: 8000
+  dbPoolMax: 5
   rateLimitPerMinute: 120
   resources:
     requests: {cpu: 100m, memory: 128Mi}
@@ -35,6 +36,13 @@ api:
 worker:
   replicas: 2
   metricsPort: 9100
+  concurrency: 8        # in-flight postings per pod
+  dbPoolMax: 8
+  hpa:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetLagPerReplica: 500   # scale out when more than this many events wait per worker
   resources:
     requests: {cpu: 100m, memory: 128Mi}
     limits: {memory: 256Mi}
