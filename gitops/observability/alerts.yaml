@@ -1,0 +1,58 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ledgerflow
+  namespace: monitoring
+spec:
+  groups:
+    - name: ledgerflow.slo
+      rules:
+        - alert: LedgerHighErrorRate
+          expr: |
+            sum(rate(ledger_http_requests_total{status=~"5.."}[5m]))
+              / clamp_min(sum(rate(ledger_http_requests_total[5m])), 1e-9) > 0.02
+          for: 5m
+          labels: {severity: critical}
+          annotations:
+            summary: "More than 2% of API requests are failing with 5xx"
+        - alert: LedgerHighLatencyP99
+          expr: |
+            histogram_quantile(0.99,
+              sum by (le) (rate(ledger_http_request_duration_seconds_bucket[5m]))) > 0.5
+          for: 5m
+          labels: {severity: warning}
+          annotations:
+            summary: "API p99 latency is above 500ms"
+    - name: ledgerflow.pipeline
+      rules:
+        - alert: LedgerStreamLagGrowing
+          expr: max(ledger_stream_lag) > 100
+          for: 5m
+          labels: {severity: warning}
+          annotations:
+            summary: "More than 100 events are waiting for the workers"
+        - alert: LedgerDeadLetters
+          expr: sum(increase(ledger_transactions_total{status="dead_lettered"}[10m])) > 0
+          labels: {severity: critical}
+          annotations:
+            summary: "Events were moved to the dead-letter stream"
+        - alert: LedgerWorkerDown
+          expr: absent(up{job="monitoring/ledgerflow-worker"} == 1)
+          for: 3m
+          labels: {severity: critical}
+          annotations:
+            summary: "No ledger worker is being scraped"
+    - name: ledgerflow.data
+      rules:
+        - alert: PostgresReplicationLag
+          expr: max(cnpg_pg_replication_lag) > 30
+          for: 5m
+          labels: {severity: warning}
+          annotations:
+            summary: "A Postgres replica is more than 30s behind the primary"
+        - alert: RedisMemoryHigh
+          expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.8
+          for: 10m
+          labels: {severity: warning}
+          annotations:
+            summary: "Redis is using more than 80% of its memory limit"

@@ -1,0 +1,49 @@
+# Prometheus scrape targets. PodMonitors are used throughout (the targets are pods,
+# and PodMonitor adds the pod/namespace labels the HPA metric rules rely on).
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: ledgerflow-api
+  namespace: monitoring
+spec:
+  namespaceSelector: {matchNames: [ledger]}
+  selector:
+    matchLabels: {app.kubernetes.io/name: ledgerflow-api}
+  podMetricsEndpoints:
+    - {port: http, path: /metrics, interval: 15s}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: ledgerflow-worker
+  namespace: monitoring
+spec:
+  namespaceSelector: {matchNames: [ledger]}
+  selector:
+    matchLabels: {app.kubernetes.io/name: ledgerflow-worker}
+  podMetricsEndpoints:
+    - {port: metrics, path: /metrics, interval: 15s}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: redis
+  namespace: monitoring
+spec:
+  namespaceSelector: {matchNames: [ledger]}
+  selector:
+    matchLabels: {app.kubernetes.io/name: redis}
+  podMetricsEndpoints:
+    - {port: exporter, path: /metrics, interval: 30s}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: postgres
+  namespace: monitoring
+spec:
+  namespaceSelector: {matchNames: [ledger]}
+  selector:
+    matchLabels: {cnpg.io/cluster: ledger-db}
+  podMetricsEndpoints:
+    - {port: metrics, path: /metrics, interval: 30s}

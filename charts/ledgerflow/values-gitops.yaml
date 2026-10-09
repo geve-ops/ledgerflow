@@ -4,3 +4,11 @@ image:
   repository: ghcr.io/geve-ops/ledgerflow
   tag: sha-c48b242
   pullPolicy: IfNotPresent
+
+api:
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilization: 70
+    targetRequestsPerSecond: 40

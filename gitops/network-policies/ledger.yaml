@@ -48,6 +48,13 @@ spec:
             matchLabels: {app.kubernetes.io/component: proxy}
       ports:
         - {protocol: TCP, port: 8000}
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: monitoring}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: prometheus}
+      ports:
+        - {protocol: TCP, port: 8000}
   egress:
     - to:
         - podSelector:
@@ -69,6 +76,14 @@ spec:
   podSelector:
     matchLabels: {app.kubernetes.io/name: ledgerflow-worker}
   policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: monitoring}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: prometheus}
+      ports:
+        - {protocol: TCP, port: 9100}
   egress:
     - to:
         - podSelector:
@@ -114,6 +129,13 @@ spec:
             matchLabels: {app.kubernetes.io/name: ledgerflow-worker}
       ports:
         - {protocol: TCP, port: 6379}
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: monitoring}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: prometheus}
+      ports:
+        - {protocol: TCP, port: 9121}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -142,6 +164,14 @@ spec:
       ports:
         - {protocol: TCP, port: 5432}
         - {protocol: TCP, port: 8000}
+    # Prometheus scraping the instance exporter
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: monitoring}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: prometheus}
+      ports:
+        - {protocol: TCP, port: 9187}
     # CloudNativePG operator health checks and failover control
     - from:
         - namespaceSelector:

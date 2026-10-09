@@ -11,6 +11,8 @@ spec:
     - https://cloudnative-pg.github.io/charts
     - https://charts.jetstack.io
     - docker.io/envoyproxy
+    - https://prometheus-community.github.io/helm-charts
+    - https://kubernetes-sigs.github.io/metrics-server/
   destinations:
     - {server: https://kubernetes.default.svc, namespace: "*"}
   clusterResourceWhitelist:

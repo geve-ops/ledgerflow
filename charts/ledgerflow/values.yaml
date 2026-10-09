@@ -30,6 +30,7 @@ api:
     minReplicas: 2
     maxReplicas: 6
     targetCPUUtilization: 70
+    targetRequestsPerSecond: 0   # per-pod request rate; 0 disables the custom metric
 
 worker:
   replicas: 2

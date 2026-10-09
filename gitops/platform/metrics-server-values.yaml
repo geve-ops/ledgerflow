@@ -1,0 +1,7 @@
+# helm install metrics-server metrics-server/metrics-server --version 3.14.0 -n kube-system
+# Kind's kubelets use self-signed certificates.
+args:
+  - --kubelet-insecure-tls
+resources:
+  requests: {cpu: 25m, memory: 48Mi}
+  limits: {memory: 128Mi}

@@ -1,0 +1,87 @@
+# Observability and autoscaling signals.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "3"}
+spec:
+  project: ledgerflow
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 92.2.0
+      helm:
+        releaseName: kube-prometheus-stack
+        valueFiles: [$values/gitops/platform/kube-prometheus-stack-values.yaml]
+    - repoURL: https://github.com/geve-ops/ledgerflow.git
+      targetRevision: main
+      ref: values
+  destination: {server: https://kubernetes.default.svc, namespace: monitoring}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [ServerSideApply=true]   # Prometheus Operator CRDs are very large
+    retry: {limit: 5, backoff: {duration: 15s, factor: 2, maxDuration: 3m}}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: metrics-server
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "3"}
+spec:
+  project: ledgerflow
+  sources:
+    - repoURL: https://kubernetes-sigs.github.io/metrics-server/
+      chart: metrics-server
+      targetRevision: 3.14.0
+      helm:
+        releaseName: metrics-server
+        valueFiles: [$values/gitops/platform/metrics-server-values.yaml]
+    - repoURL: https://github.com/geve-ops/ledgerflow.git
+      targetRevision: main
+      ref: values
+  destination: {server: https://kubernetes.default.svc, namespace: kube-system}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus-adapter
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "4"}
+spec:
+  project: ledgerflow
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: prometheus-adapter
+      targetRevision: 5.3.0
+      helm:
+        releaseName: prometheus-adapter
+        valueFiles: [$values/gitops/platform/prometheus-adapter-values.yaml]
+    - repoURL: https://github.com/geve-ops/ledgerflow.git
+      targetRevision: main
+      ref: values
+  destination: {server: https://kubernetes.default.svc, namespace: monitoring}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    retry: {limit: 5, backoff: {duration: 15s, factor: 2, maxDuration: 3m}}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "4"}
+spec:
+  project: ledgerflow
+  source:
+    repoURL: https://github.com/geve-ops/ledgerflow.git
+    targetRevision: main
+    path: gitops/observability
+  destination: {server: https://kubernetes.default.svc, namespace: monitoring}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [SkipDryRunOnMissingResource=true]
+    retry: {limit: 8, backoff: {duration: 20s, factor: 2, maxDuration: 5m}}
