@@ -1,0 +1,27 @@
+# PostgreSQL ledger: 1 primary + 2 streaming replicas managed by CloudNativePG.
+# Services created by the operator: ledger-db-rw (primary), ledger-db-ro (replicas).
+# App credentials are generated into the Secret "ledger-db-app" (keys: uri, username, password).
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: ledger-db
+  namespace: ledger
+spec:
+  instances: 3
+  primaryUpdateStrategy: unsupervised
+  storage:
+    size: 2Gi
+  bootstrap:
+    initdb:
+      database: ledger
+      owner: ledger
+  postgresql:
+    parameters:
+      max_connections: "100"
+      shared_buffers: "128MB"
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {memory: 512Mi}
+  affinity:
+    # Spread across nodes when possible (local cluster has only 2 workers).
+    podAntiAffinityType: preferred

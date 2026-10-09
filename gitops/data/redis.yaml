@@ -1,0 +1,98 @@
+# Redis: event stream (AOF-persisted), rate-limit counters and idempotency keys.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: redis
+  namespace: ledger
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: ledger
+data:
+  redis.conf: |
+    appendonly yes
+    appendfsync everysec
+    dir /data
+    save ""
+    maxmemory 256mb
+    maxmemory-policy noeviction
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: ledger
+  labels: {app.kubernetes.io/name: redis}
+spec:
+  clusterIP: None
+  selector: {app.kubernetes.io/name: redis}
+  ports:
+    - {name: redis, port: 6379, targetPort: redis}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: ledger
+spec:
+  serviceName: redis
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: redis}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: redis}
+    spec:
+      serviceAccountName: redis
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: redis
+          image: redis:7.4-alpine
+          command: ["sh", "-c", 'exec redis-server /conf/redis.conf --requirepass "$REDIS_PASSWORD"']
+          ports:
+            - {name: redis, containerPort: 6379}
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom: {secretKeyRef: {name: ledger-secrets, key: redis-password}}
+            - name: REDISCLI_AUTH
+              valueFrom: {secretKeyRef: {name: ledger-secrets, key: redis-password}}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {memory: 384Mi}
+          startupProbe:
+            exec: {command: ["redis-cli", "ping"]}
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            exec: {command: ["redis-cli", "ping"]}
+            periodSeconds: 5
+          livenessProbe:
+            exec: {command: ["redis-cli", "ping"]}
+            periodSeconds: 10
+            failureThreshold: 3
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: config, mountPath: /conf, readOnly: true}
+      volumes:
+        - name: config
+          configMap: {name: redis-config}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests: {storage: 1Gi}

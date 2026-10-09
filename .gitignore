@@ -8,3 +8,6 @@ __pycache__/
 # Never commit plaintext secrets; only SealedSecrets
 *-secret.plain.yaml
 sealed-secrets-master.key
+
+# local-only plaintext values (never committed)
+.local/
