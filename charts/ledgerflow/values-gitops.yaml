@@ -2,7 +2,7 @@
 # so a merge to main is the only action needed to deploy.
 image:
   repository: ghcr.io/geve-ops/ledgerflow
-  tag: sha-bcb5ebf
+  tag: sha-c01ef4f
   pullPolicy: IfNotPresent
 
 api:
