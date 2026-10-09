@@ -1,0 +1,12 @@
+# Bootstrap values used for `helm upgrade --install cilium cilium/cilium --version 1.20.2 -n kube-system`
+image:
+  pullPolicy: IfNotPresent
+ipam:
+  mode: kubernetes
+operator:
+  replicas: 1
+hubble:
+  relay:
+    enabled: true
+  ui:
+    enabled: true
