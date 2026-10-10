@@ -25,3 +25,9 @@ spec:
   affinity:
     # Spread across nodes when possible (local cluster has only 2 workers).
     podAntiAffinityType: preferred
+  plugins:
+    # Continuous WAL archiving to the object store (enables point-in-time recovery).
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: ledger-store
