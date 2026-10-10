@@ -96,7 +96,7 @@ kubectl -n argocd get applications -w
 ./scripts/edge-forward.ps1       # https://ledgerflow.localtest.me:9443
 ```
 
-A fresh bootstrap takes roughly 30 minutes end to end (about 15 for the script, then Argo CD converges), mostly image pulls and the first database initialisation. Argo CD reports a few apps `Degraded` while the platform comes up in order;
+A full rebuild from nothing takes about 9 minutes when the images are already cached locally (script about 2.5 minutes, then Argo CD converges), and about 30 minutes cold, dominated by image pulls and the first database initialisation. Verified end to end: a payment posts through the TLS edge, the first backup completes and all 16 applications reach healthy. Argo CD reports a few apps `Degraded` while the platform comes up in order;
 retries resolve this without intervention.
 
 ```powershell

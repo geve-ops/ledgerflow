@@ -55,6 +55,7 @@ kubectl -n restore-test get cluster ledger-restored
   the live database. It is a harmless, clearly labelled entry (`oops.mistake`).
 - WAL archiving failed 13 times while the pods were rolling to add the backup sidecar, before the
   sidecar was ready. It has been healthy since (`pg_stat_archiver`).
-- The first scheduled backup failed with "cluster has no plugin configured" because it fired
+- When the plugin was added to an already-running cluster, the first scheduled backup failed with "cluster has no plugin configured" because it fired
   (`immediate: true`) before the pods had been rolled. The on-demand backup taken afterwards
   succeeded; the daily 02:00 schedule has not yet run at the time of writing.
+In a from-scratch rebuild, where the plugin is part of the cluster from the start, the first scheduled backup completed on its own.

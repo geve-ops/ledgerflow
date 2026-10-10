@@ -273,7 +273,7 @@ reachable from the new cluster.
 
 | # | Step | Command / action |
 |---|---|---|
-| 1 | Recreate the cluster, CNI, key and Argo CD | `./scripts/bootstrap.ps1` (**tested** before monitoring and backups were added; **not re-run** since) |
+| 1 | Recreate the cluster, CNI, key and Argo CD | `./scripts/bootstrap.ps1` (**tested end to end**, including monitoring and backups; see below) |
 | 2 | Wait for the platform | `kubectl -n argocd get applications -w`; expect transient `Degraded` while operators start; all 16 `Synced`/`Healthy` |
 | 3 | Confirm secrets decrypted | `kubectl -n ledger get secret ledger-secrets s3-credentials`; if missing, the key backup was not restored |
 | 4 | Confirm the database | `kubectl -n ledger get cluster ledger-db`; run section 7.7 |
@@ -295,11 +295,7 @@ only if the sealing key was copied (step 1 of the table).
 
 ### 7.6 Scenario: whole region/disk lost, nothing else damaged
 
-Same as 7.5 + B2, provided the backups are off-cluster. In the one full rebuild that was run
-(before monitoring and backups were added), the bootstrap script took about 15 minutes and Argo CD
-needed about another 15 to reach all-healthy, so **budget about 30 minutes for the platform**; the
-slowest part was the first database creation (image pulls and initialisation took about 9
-minutes). Add the restore time on top.
+Same as 7.5 + B2, provided the backups are off-cluster. Rebuild timings (measured): a full destroy-and-rebuild with all 16 applications, monitoring and backups took about **9 minutes with the images cached locally** (bootstrap script about 2.5 minutes, Argo CD converging in about 6 more), and about **30 minutes cold** in the earlier, smaller rebuild; the slowest step was always the first database creation (up to about 9 minutes cold, about 3 warm). After the rebuild a payment posted through the TLS edge, the sealing key restored from the backup decrypted every secret, and the first scheduled backup completed. Add the restore time on top.
 
 ### 7.7 Post-recovery verification checklist
 
