@@ -9,38 +9,9 @@ GitOps delivery, and autoscaling driven by real metrics. Everything runs locally
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    client(["Client"]) -->|"HTTPS"| gw
+![ledgerflow architecture](docs/diagrams/architecture.svg)
 
-    subgraph edge ["Edge"]
-        gw["Envoy Gateway<br/>Gateway API + cert-manager TLS"]
-    end
-
-    subgraph ledger ["namespace ledger: restricted Pod Security, default-deny NetworkPolicies"]
-        api["ledgerflow-api<br/>FastAPI x2-6<br/>HPA on CPU and requests per second"]
-        redis[("Redis<br/>stream, rate limits,<br/>idempotency keys")]
-        worker["ledgerflow-worker<br/>x2-6<br/>HPA on stream lag"]
-        pg[("PostgreSQL x3<br/>CloudNativePG<br/>ledger + audit log")]
-    end
-
-    gw --> api
-    api -->|"1. rate limit + idempotency"| redis
-    api -->|"2. XADD event, return 202"| redis
-    redis -->|"3. XREADGROUP"| worker
-    worker -->|"4. one transaction:<br/>debit + credit + audit"| pg
-    api -.->|"reads"| pg
-
-    subgraph gitops ["GitOps and observability"]
-        git[("GitHub")] --> argo["Argo CD"]
-        prom["Prometheus + Grafana<br/>+ Alertmanager"]
-    end
-    argo -.->|"syncs everything"| ledger
-    prom -.->|"scrapes"| api
-    prom -.->|"scrapes"| worker
-    prom -.->|"scrapes"| redis
-    prom -.->|"scrapes"| pg
-```
+More diagrams (request lifecycle, storage topology, failure recovery, network policy) are in [docs/architecture.md](docs/architecture.md); images are in [docs/diagrams/](docs/diagrams/).
 
 **Request flow.** `POST /v1/transactions` authenticates the caller, applies a per-client rate
 limit and an idempotency check (both in Redis), appends the event to a Redis Stream and returns
