@@ -9,10 +9,24 @@ const BASE = `https://${HOST}`;
 const API_KEY = __ENV.API_KEY;
 const PEAK = parseInt(__ENV.PEAK_RPS || "300");
 
+// STEADY_RPS switches to a constant rate (used while injecting failures); otherwise ramp.
+const STEADY = parseInt(__ENV.STEADY_RPS || "0");
+
 export const options = {
   insecureSkipTLSVerify: true, // local CA; the host is pinned via `hosts` below
   hosts: { [HOST]: __ENV.GATEWAY_IP },
-  scenarios: {
+  scenarios: STEADY
+    ? {
+        payments: {
+          executor: "constant-arrival-rate",
+          rate: STEADY,
+          timeUnit: "1s",
+          duration: __ENV.DURATION || "3m",
+          preAllocatedVUs: 50,
+          maxVUs: 300,
+        },
+      }
+    : {
     payments: {
       executor: "ramping-arrival-rate",
       startRate: 10,
@@ -37,6 +51,11 @@ export const options = {
 const params = {
   headers: { "X-API-Key": API_KEY, "Content-Type": "application/json" },
 };
+// Setup re-runs create accounts that may already exist (409); that is not a failure.
+const setupParams = {
+  ...params,
+  responseCallback: http.expectedStatuses(201, 202, 409),
+};
 const ACCOUNTS = 20;
 const account = (i) => `load-${i}`;
 
@@ -45,7 +64,7 @@ export function setup() {
     http.post(
       `${BASE}/v1/accounts`,
       JSON.stringify({ id, currency: "USD", allow_negative: negative }),
-      params
+      setupParams
     );
   mk("load-treasury", true);
   for (let i = 0; i < ACCOUNTS; i++) mk(account(i), false);

@@ -1,6 +1,8 @@
 # Runs the k6 load test inside the cluster and prints the result.
 #   ./scripts/loadtest.ps1 -PeakRps 300
-param([int]$PeakRps = 300)
+#   ./scripts/loadtest.ps1 -SteadyRps 40 -Duration 3m   # constant rate, for failure injection
+#   -PinNode <name> keeps the load generator on one node (so draining another node cannot evict it)
+param([int]$PeakRps = 300, [int]$SteadyRps = 0, [string]$Duration = '3m', [string]$PinNode = '')
 $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path $PSScriptRoot -Parent)
 
@@ -14,7 +16,12 @@ kubectl -n loadtest create configmap k6-script --from-file=ledger.js=load-tests/
   --dry-run=client -o yaml | kubectl apply -f -
 kubectl -n loadtest create secret generic k6-api-key --from-literal=api-key=$key `
   --dry-run=client -o yaml | kubectl apply -f -
-(Get-Content load-tests/job.yaml -Raw).Replace('__GATEWAY_IP__', $gw).Replace('__PEAK_RPS__', "$PeakRps") |
-  kubectl apply -f -
+$node = if ($PinNode) { "nodeSelector: {kubernetes.io/hostname: $PinNode}" } else { '' }
+$yaml = Get-Content load-tests/job.yaml -Raw
+$yaml = $yaml.Replace('__GATEWAY_IP__', $gw).Replace('__PEAK_RPS__', "$PeakRps")
+$yaml = $yaml.Replace('__STEADY_RPS__', "$SteadyRps").Replace('__DURATION__', $Duration)
+$yaml = $yaml.Replace('# __NODE__', $node)
+$yaml | kubectl apply -f -
+if ($LASTEXITCODE -ne 0) { throw 'failed to create the k6 job' }
 
-Write-Host "k6 running (~6.5 min). Follow with: kubectl -n loadtest logs -f job/k6"
+Write-Host "k6 running. Follow with: kubectl -n loadtest logs -f job/k6"
