@@ -1,0 +1,21 @@
+# Where CloudNativePG ships base backups and WAL (continuous archiving -> point-in-time recovery).
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: ledger-store
+  namespace: ledger
+spec:
+  retentionPolicy: "7d"
+  configuration:
+    destinationPath: s3://cnpg-backups/
+    endpointURL: http://seaweedfs.backup-storage.svc.cluster.local:8333
+    s3Credentials:
+      accessKeyId: {name: s3-credentials, key: ACCESS_KEY_ID}
+      secretAccessKey: {name: s3-credentials, key: ACCESS_SECRET_KEY}
+    wal: {compression: gzip}
+    data: {compression: gzip}
+  instanceSidecarConfiguration:
+    env:
+      # Newer AWS SDK defaults add checksum headers that non-AWS S3 servers may reject.
+      - {name: AWS_REQUEST_CHECKSUM_CALCULATION, value: when_required}
+      - {name: AWS_RESPONSE_CHECKSUM_VALIDATION, value: when_required}

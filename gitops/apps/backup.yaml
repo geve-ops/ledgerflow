@@ -1,0 +1,36 @@
+# Backups: the Barman Cloud plugin for CloudNativePG and an S3-compatible object store.
+# Both come up before the database (waves -7 and -6) because the Cluster references them.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: barman-plugin
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-7"}
+spec:
+  project: ledgerflow
+  source:
+    repoURL: https://github.com/geve-ops/ledgerflow.git
+    targetRevision: main
+    path: gitops/platform/barman-plugin
+  destination: {server: https://kubernetes.default.svc, namespace: cnpg-system}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [ServerSideApply=true]
+    retry: {limit: 5, backoff: {duration: 15s, factor: 2, maxDuration: 3m}}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: backup
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-6"}
+spec:
+  project: ledgerflow
+  source:
+    repoURL: https://github.com/geve-ops/ledgerflow.git
+    targetRevision: main
+    path: gitops/backup
+  destination: {server: https://kubernetes.default.svc, namespace: backup-storage}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    retry: {limit: 8, backoff: {duration: 15s, factor: 2, maxDuration: 3m}}

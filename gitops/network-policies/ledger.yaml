@@ -188,6 +188,14 @@ spec:
       ports:
         - {protocol: TCP, port: 5432}
         - {protocol: TCP, port: 8000}
+    # Backups and WAL archiving to the object store
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: backup-storage}
+          podSelector:
+            matchLabels: {app.kubernetes.io/name: seaweedfs}
+      ports:
+        - {protocol: TCP, port: 8333}
 ---
 # The instance manager inside each Postgres pod talks to the Kubernetes API server.
 # A plain NetworkPolicy cannot name the API server portably, so use Cilium's entity.

@@ -1,0 +1,14 @@
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: seaweedfs-s3
+  namespace: backup-storage
+spec:
+  encryptedData:
+    s3.json: AgAJ2yQwpgw+TwKA/5oE6/khWi2QlDaaxCdlGmomPJRmaIsA59/Dq6gHQ+3XNuKb5qpohrurt/0QlwjTWNE6N2y0GqMfRTHEshPlfnZdZ1Bw4rjbe4PMa8tk5SxgTO1ZK1mIiHUvjjcUNuDwFRKDynXPJ797Hdq/I9c16w4WxYRjOzFgl6D2DS6VcRPAoyUJnbksF+2pTQ81iLhbMh4uTstGt1eYHvquN1s2kZxa1Od27IV2l6N7cnPqYmfEETozhvgVFKpp9FpfT/NC4qJCRZ8sdrq9btc9iYog4J02S3T9z42u4eZQXs9bbkz8iw7WrcQKfqXSwRn9hRM4AiYONNSutvWcme0aci/qaMA1+tagGVQWCeYgmzu1FFrjXxT7j0v3CoUwQui3yaxjwcCxgQ5dK9xNt0E2E8rUEVTELzS9vjJ53JgOd06T1A1M1noyXPU4RnVy4iivOhs+VhnCFfWVcXMZqgjBiuYwG5OHK2Y/KSpD0crWEz4ZbsfKc9+pTzY6MM8VjrIY1Yvd1qCrwJRzsHyirPm5CL/ibLVh0kIfozL/+kHCeP7kiyULNR5ZHmYxIDLLuyzkMyjUk0qgyN6kOisMQCU96VS9a9Km5ATfScJckYwXsfqRzTaWWKDjY1g7J+jdRZdGLBJ3qpQzcbeUmtoyL43YRAPLmTRM2TvmDr3/w73vcsjXuHps8A54YF0xLLQd/r1hwkerxXj+nl8BlMFrzZfBMRq+sLXR3tu8031tcr9wcxcecJG8adu4ia4W43llwG2rBJ2PzfqQKaeBPRRqF2M9tw03k9a24Nm+d0nQ6IP+5sDSAYhLxSdy2kMgD4e6CNqTW4kX3cG+60R31bX9EiSStvlhe0xQZvzfuYFfiU75yHZdOgLfdQ7LLUUiwVygw2QOH2srQS0sYOXL10O7EzgTmciSs+KRvkUTsgIj3SzJg022TCp6xvGC0Nk=
+  template:
+    metadata:
+      name: seaweedfs-s3
+      namespace: backup-storage
+    type: Opaque
