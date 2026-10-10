@@ -91,6 +91,16 @@ stream lag. Same load, 4x smaller backlog.
 | Delivery | **Helm** chart, **Argo CD** app-of-apps with sync waves and a custom CNPG health check; GitHub Actions builds, scans (Trivy) and pushes to GHCR, then commits the new image tag |
 | Observability | **Prometheus**, **Grafana** (dashboard as code), **Alertmanager** rules for error rate, p99 latency, queue lag, dead letters and replication lag |
 
+## Documentation
+
+Full documentation lives in [docs/](docs/README.md):
+[architecture](docs/architecture.md) (components, storage, four diagrams),
+[security](docs/security.md) (network policy, RBAC, secrets),
+[observability](docs/observability.md) (metrics, alerts, SLOs, probes),
+[operations](docs/operations.md) (sizing, autoscaling, disaster recovery, troubleshooting),
+[backups](docs/backups.md), [failure experiments](docs/chaos.md) and a
+[generated reference of every manifest](docs/reference/manifests.md).
+
 ## Repository layout
 
 ```
@@ -115,8 +125,7 @@ kubectl -n argocd get applications -w
 ./scripts/edge-forward.ps1       # https://ledgerflow.localtest.me:9443
 ```
 
-A fresh bootstrap takes roughly 15 to 20 minutes, mostly image pulls and the first database
-initialisation. Argo CD reports a few apps `Degraded` while the platform comes up in order;
+A fresh bootstrap takes roughly 30 minutes end to end (about 15 for the script, then Argo CD converges), mostly image pulls and the first database initialisation. Argo CD reports a few apps `Degraded` while the platform comes up in order;
 retries resolve this without intervention.
 
 ```powershell
