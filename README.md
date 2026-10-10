@@ -11,32 +11,35 @@ GitOps delivery, and autoscaling driven by real metrics. Everything runs locally
 
 ```mermaid
 flowchart LR
-    client([Client]) -->|HTTPS| gw
+    client(["Client"]) -->|"HTTPS"| gw
 
-    subgraph edge [Edge]
-        gw[Envoy Gateway<br/>Gateway API + cert-manager TLS]
+    subgraph edge ["Edge"]
+        gw["Envoy Gateway<br/>Gateway API + cert-manager TLS"]
     end
 
-    subgraph ledger [namespace: ledger - Pod Security 'restricted', default-deny NetworkPolicies]
-        api[ledgerflow-api<br/>FastAPI x2-6<br/>HPA: CPU + req/s]
-        redis[(Redis<br/>stream, rate limits,<br/>idempotency keys)]
-        worker[ledgerflow-worker<br/>x2-6<br/>HPA: stream lag]
-        pg[(PostgreSQL 3x<br/>CloudNativePG<br/>ledger + audit log)]
+    subgraph ledger ["namespace ledger: restricted Pod Security, default-deny NetworkPolicies"]
+        api["ledgerflow-api<br/>FastAPI x2-6<br/>HPA on CPU and requests per second"]
+        redis[("Redis<br/>stream, rate limits,<br/>idempotency keys")]
+        worker["ledgerflow-worker<br/>x2-6<br/>HPA on stream lag"]
+        pg[("PostgreSQL x3<br/>CloudNativePG<br/>ledger + audit log")]
     end
 
     gw --> api
-    api -->|1. rate limit + idempotency| redis
-    api -->|2. XADD event, return 202| redis
-    redis -->|3. XREADGROUP| worker
-    worker -->|4. one transaction:<br/>debit + credit + audit| pg
-    api -.->|reads| pg
+    api -->|"1. rate limit + idempotency"| redis
+    api -->|"2. XADD event, return 202"| redis
+    redis -->|"3. XREADGROUP"| worker
+    worker -->|"4. one transaction:<br/>debit + credit + audit"| pg
+    api -.->|"reads"| pg
 
-    subgraph gitops [GitOps and observability]
-        git[(GitHub)] --> argo[Argo CD]
-        prom[Prometheus + Grafana<br/>+ Alertmanager]
+    subgraph gitops ["GitOps and observability"]
+        git[("GitHub")] --> argo["Argo CD"]
+        prom["Prometheus + Grafana<br/>+ Alertmanager"]
     end
-    argo -.->|syncs everything| ledger
-    prom -.->|scrapes| api & worker & redis & pg
+    argo -.->|"syncs everything"| ledger
+    prom -.->|"scrapes"| api
+    prom -.->|"scrapes"| worker
+    prom -.->|"scrapes"| redis
+    prom -.->|"scrapes"| pg
 ```
 
 **Request flow.** `POST /v1/transactions` authenticates the caller, applies a per-client rate
