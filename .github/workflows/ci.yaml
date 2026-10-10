@@ -106,4 +106,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add charts/ledgerflow/values-gitops.yaml
           git diff --cached --quiet || git commit -m "deploy: ledgerflow ${{ needs.image.outputs.tag }}"
-          git push
+          # main may have moved while the image was building; rebase and retry
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && git push && exit 0
+            sleep 3
+          done
+          exit 1
