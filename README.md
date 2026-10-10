@@ -64,7 +64,10 @@ relative behaviour, not absolute capacity. Reproduce with the scripts in `script
 | **Rolling update via Git, under 40 req/s** | Rolled out in **33 s**, **0 failed requests** out of 6,602 |
 | **Node drain under 40 req/s** (2 Postgres replicas + API pods) | Second replica protected by its PodDisruptionBudget; every payment accepted, **0 lost** (187,904 = 187,904); healthy again 88 s after the node returned |
 
-Details, methods and caveats for every experiment: [docs/chaos.md](docs/chaos.md).
+| **Point-in-time restore** | Restored a new cluster to a timestamp taken before a simulated mistake: row counts and ledger totals matched **exactly**, the mistake was absent |
+
+Details, methods and caveats: [docs/chaos.md](docs/chaos.md) (failure experiments) and
+[docs/backups.md](docs/backups.md) (backups and recovery).
 
 The second load run is the interesting one. The first showed the API easily absorbing 330 req/s
 while a single-threaded worker fell behind (the stream is a buffer, so nothing was lost, but the
@@ -82,6 +85,7 @@ stream lag. Same load, 4x smaller backlog.
 | Secrets | **Sealed Secrets**: encrypted values live in Git; the key is backed up out of band |
 | RBAC | One ServiceAccount per workload, no token mounted, no Role bound (the apps never call the Kubernetes API) |
 | State | **CloudNativePG** (1 primary + 2 replicas, automatic failover) with PersistentVolumeClaims; Redis StatefulSet with AOF persistence |
+| Backup and recovery | Daily base backups plus continuous WAL archiving to an S3-compatible store (Barman Cloud plugin); **point-in-time restore verified** |
 | Resilience | Startup/readiness/liveness probes, requests and limits, `maxUnavailable: 0` rolling updates, PodDisruptionBudgets, topology spread, graceful shutdown |
 | Autoscaling | **HPA** on CPU + custom `requests/s` (prometheus-adapter) for the API; HPA on **external queue-depth metric** for the worker |
 | Delivery | **Helm** chart, **Argo CD** app-of-apps with sync waves and a custom CNPG health check; GitHub Actions builds, scans (Trivy) and pushes to GHCR, then commits the new image tag |
@@ -95,7 +99,7 @@ charts/ledgerflow/ Helm chart: deployments, HPAs, PDBs, migration hook
 gitops/bootstrap/  Argo CD project + root app-of-apps
 gitops/apps/       one Argo CD Application per component, ordered with sync waves
 gitops/platform/   Helm values for operators and the monitoring stack
-gitops/{data,edge,network-policies,observability}/   plain manifests
+gitops/{data,edge,network-policies,observability,backup}/   plain manifests
 load-tests/        k6 script and in-cluster Job
 scripts/           bootstrap, load test, chaos tests, dashboard generator
 ```
@@ -146,7 +150,9 @@ dashboard **Ledgerflow: transactions, latency and scaling**.
   it returns. Production would use Redis Sentinel/Cluster or a managed service.
 - **Volumes are node-local** (Kind's default storage), so a Postgres replica cannot move to
   another node while its node is down. Real network-attached storage removes this.
-- **No database backups** are configured (CloudNativePG supports object-store backups; it needs a bucket).
+- **Backups go to an object store inside the same cluster** (a single SeaweedFS pod), which proves
+  the mechanism but is not durable; production would write to a bucket in a different failure
+  domain. Redis data is not backed up (it holds the in-flight stream, not the ledger).
 - The TLS certificate comes from a **local CA**; swap the issuer for ACME in a real environment.
 - Rate limiting is a fixed window per client, which allows short bursts at window edges.
 - If an API pod dies between claiming an idempotency key and enqueuing the event, that key
